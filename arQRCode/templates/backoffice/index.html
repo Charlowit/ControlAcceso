@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %} Welcome {% endblock %}
+{% block css %}
+    {{block.super}}
+    <link  href="{% static 'backoffice/index.css' %}"  rel="stylesheet" />
+{% endblock %}
+{% block script %}
+    {{block.super}}
+    <script src="{% static 'backoffice/index.js'%}"></script>
+{% endblock %}
+{% block content %}
+<div class="container bg-light p-5">
+    <div class="row">
+        <div class="col-auto mx-auto">
+                Welcome to django with bootstrap !<br />
+                {% if user.is_authenticated %}
+                    <p>Welcome, {{ user.username }}. Thanks for logging in.</p>
+                {% else %}
+                    {% if perms.backoffice %}
+                        have permission
+                    {% else %}
+                        no permission
+                    {% endif %}
+                    <p>Welcome, new user. Please log in.</p>
+                {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

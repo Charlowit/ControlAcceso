@@ -1,0 +1,32 @@
+{% extends "bases/baseform.html" %}
+
+{% load crispy_forms_tags %}
+
+{% block form %}
+
+{% include 'auth/empresas/_header.html' with active='acceso' %}
+<div class="card">
+    <div class="card-header">
+        <div class="row">
+            <div class="col-10">
+                <strong>Accesos</strong>
+            </div>
+        </div>
+    </div>
+    <div class="list-group list-group-flush list-group-formset">
+        {% for acceso in accesosnegocio.all %}
+        <div class="list-group-item">
+            <div class="row">
+                <div class="col-10">
+                    {{ acceso.user.name }}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="list-group-item text-center">
+            <p class="text-muted font-italic mb-0">Aún no se ha registrado ningún acceso </p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

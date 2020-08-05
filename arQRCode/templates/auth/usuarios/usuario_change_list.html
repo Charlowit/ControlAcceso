@@ -1,0 +1,71 @@
+{% extends "bases/baseform.html" %}
+{% load bootstrap4 %}
+{% load qr_code %}
+{% load static %}
+
+{% block form %}
+<h2 class="mb-3">Tus datos</h2>
+
+<div class="row">
+    <div class="col-sm-6 col-md-4 col-lg4">
+        <p class="sticky taped2" style="width: 250px;">
+            <strong>Bienvenido {{ request.user.name }}!</strong><br>
+            Debes presentar este código QR<br/>
+            a la entrada y la salida de los<br/>
+            locales adheridos a la plataforma.<br/>
+            El registro será anónimo.<br/>
+            {% qr_from_text user.id size="T" image_format="png" error_correction="L" %}
+            <br>
+            <strong>Tu perfil!</strong>
+            <ul class="list-unstyled">
+                <li>Código: <strong>{{user.id}}</strong></li>
+                <li>Nombre: <strong>{{user.first_name}}</strong></li>
+                <li>Apellidos: <strong>{{user.last_name}}</strong></li>
+                <li>Nombre Corto: <strong>{{user.display_name}}</strong></li>
+                <li>Email: <strong>{{user.email}}</strong></li>
+                <li>Teléfono: <strong>{{user.phone}}</strong></li>
+                <li>Notificaciones: <strong>{{user.acceptPush}}</strong></li>
+                <li>Fecha Registro: <strong>{{user.date_joined}}</strong></li>
+                <li>
+                    {% if request.user.profile.account_verified %}
+                        Cuenta verificada
+                    {% else %}
+                        Cuenta no verificada
+                    {% endif %}
+                </li>
+            </ul>
+            <a href="{% url 'account_profile' %}">Editar</a>
+        </p>
+    </div>
+    <div class="col-sm-12 col-md-8 col-lg8">
+        <p class="sticky taped2" style="width: 250px;">
+            <strong>Tus Registros</strong>
+            <div class="card">
+                <div class="list-group list-group-flush list-group-formset">
+                    {% for acceso in accesos.all %}
+                        <div class="list-group-item">
+                            <div class="row">
+                                <div class="col-10">
+                                    {{ acceso.negocio.nombre }}
+                                </div>
+                                <div class="col-10">
+                                    {{ acceso.fechaEntrada }}
+                                </div>
+                                <div class="col-10">
+                                    {{ acceso.fechaSalida }}
+                                </div>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <div class="list-group-item text-center">
+                            <p class="text-muted font-italic mb-0">No hay registros</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+

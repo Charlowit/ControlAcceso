@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="container">
+      <div class="row justify-content-center align-items-center" style="height:80vh;">
+          <div class="col-auto border p-3">
+              {% if form.errors %}
+              <p class="bg-danger p-2">Please login with your credentials.</p>
+              {% endif %}
+{% if next %}
+                  {% if user.is_authenticated %}
+                  <p class="bg-warning p-1">Your account doesn't have access.</p>
+                  {% else %}
+                  <p class="bg-secondary">Please login to see this page.</p>
+                  {% endif %}
+              {% endif %}
+<form method="post" action="{% url 'accounts:login' %}">
+              {% csrf_token %}
+              <table>
+              <tr>
+                  <td>{{ form.username.label_tag }} </td>
+                  <td>{{ form.username }}</td>
+              </tr>
+              <tr>
+                  <td>{{ form.password.label_tag }} </td>
+                  <td>{{ form.password }}</td>
+              </tr>
+              </table>
+<input type="submit" value="login" />
+              <input type="hidden" name="next" value="{{ next }}" />
+              </form>
+{# Assumes you setup the password_reset view in your URLconf #}
+              <p><a href="{% url 'accounts:password_reset' %}">Lost password?</a></p>
+          </div>
+      </div>
+  </div>
+{% endblock %}

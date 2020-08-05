@@ -1,0 +1,45 @@
+{% extends "bases/baseform.html" %}
+
+{% block form %}
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item active" aria-current="page">Mis Negocios</li>
+    </ol>
+  </nav>
+  <h2 class="mb-3">Mis Negocios</h2>
+  <a href="{% url 'empresas:negocio_add' %}" class="btn btn-primary mb-3" role="button">Añadir negocio</a>
+  <div class="card">
+    <table class="table mb-0">
+      <thead>
+        <tr>
+          <th>Negocio</th>
+          <th>Direccion</th>
+          <th>Aforo</th>
+          <th>Uso Actual</th>
+          <th>Activo</th>
+          <th>Registro</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for negocio in negocios.all %}
+          <tr>
+            <td class="align-middle"><a href="{% url 'empresas:negocio_change' negocio.pk %}">{{ negocio.nombre }}</a></td>
+            <td class="align-middle">{{ negocio.direccion_fiscal }}</td>
+            <td class="align-middle">{{ negocio.aforo }}</td>
+            <td class="align-middle">{{ negocio.uso_actual }}</td>
+            <td class="align-middle">{{ negocio.is_active }}</td>
+            <td class="align-middle">{{ negocio.fechaRegistro }}</td>
+            <td class="text-right">
+              <a href="{% url 'empresas:negocio_registro' negocio.pk %}" class="btn btn-primary">Ir al Registro</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td class="bg-light text-center font-italic" colspan="5">Aún no se ha definido ninguna empresa.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

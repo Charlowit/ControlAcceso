@@ -1,0 +1,20 @@
+{% extends "bases/baseform.html" %}
+
+{% load crispy_forms_tags %}
+
+{% block form %}
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'empresas:negocio_change_list' %}">Mis negocios</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'empresas:negocio_change' negocio.id %}">{{ negocio.nombre }}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Confirmación de borrado</li>
+    </ol>
+  </nav>
+  <h2 class="mb-3">Confirmación de borrado</h2>
+  <p class="lead">¿Seguro que quiere borrar el negocio <strong>"{{ negocio.nombre }}"</strong>? Esta operación, no se puede deshacer.</p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger btn-lg">Si, Seguro</button>
+    <a href="{% url 'empresas:negocio_change' negocio.id %}" class="btn btn-outline-secondary btn-lg" role="button">Cancelar</a>
+  </form>
+{% endblock %}
