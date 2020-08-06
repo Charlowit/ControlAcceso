@@ -173,6 +173,7 @@ STATICFILES_DIRS = (
     )
 
 PROFILEMEDIA_ROOT = os.path.join(BASE_DIR, "static/profiles")
+PROFILEMEDIA_BASE = "profiles"
 
 #Custom User
 #AUTH_USER_MODEL = 'auth.User'
@@ -187,15 +188,15 @@ AUTHENTICATION_BACKENDS = (
 
 # EMAIL_BACKEND so allauth can proceed to send confirmation emails
 # ONLY for development/testing use console
-EMAIL_BACKEND='django.core.mail.backends.console.EmailBackend'
+#EMAIL_BACKEND='django.core.mail.backends.console.EmailBackend'
 # # Email configurations
-# EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST='isp.domca.com' # Set your email host
-# EMAIL_PORT=589
-# EMAIL_HOST_USER='jmserrano-domca-com'
-# EMAIL_HOST_PASSWORD='WXAH5s06'
-# EMAIL_USE_TLS=False
-# DEFAULT_FROM_EMAIL = 'jmserrano@domca.com'
+EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'mail.hotehub.com'
+EMAIL_PORT = 587
+EMAIL_HOST_USER = 'soporte@hotehub.com'
+EMAIL_HOST_PASSWORD = 'soporte42987'
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = 'soporte@hotehub.com'
 
 # Don't forget this little dude.
 SITE_ID = 1
@@ -221,7 +222,7 @@ ACCOUNT_LOGOUT_ON_GET = True
 #ACCOUNT_SIGNUP_FORM_CLASS = ''
 LOGIN_REDIRECT_URL = '/member/'
 ACCOUNT_USERNAME_MIN_LENGTH = 3
-ACCOUNT_SIGNUP_EMAIL_ENTER_TWICE = True
+#ACCOUNT_SIGNUP_EMAIL_ENTER_TWICE = True
 
 DJANGO_ICONS = {
     "ICONS": {
@@ -251,3 +252,20 @@ USE_TZ = True
 # Third party apps configuration
 
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'WARNING',
+    },
+}
+
+DNIFRONT = "dnifront.png"
+DNIBACK = "dniback.png"

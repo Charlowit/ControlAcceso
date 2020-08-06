@@ -24,6 +24,7 @@
                 <li>Nombre Corto: <strong>{{user.display_name}}</strong></li>
                 <li>Email: <strong>{{user.email}}</strong></li>
                 <li>Teléfono: <strong>{{user.phone}}</strong></li>
+                <li>DNi: <strong>{{user.dni}}</strong></li>
                 <li>Notificaciones: <strong>{{user.acceptPush}}</strong></li>
                 <li>Fecha Registro: <strong>{{user.date_joined}}</strong></li>
                 <li>
@@ -35,6 +36,17 @@
                 </li>
             </ul>
             <a href="{% url 'account_profile' %}">Editar</a>
+            <br>
+            {% if urldnifront != '' or urldniback != '' %}
+                <strong>Tus imágenes</strong>
+            {% endif %}
+            {% if urldnifront != '' %}
+                <img class="dni" src={{ urldnifront }} alt="Parte frontal del DNI">
+            {% endif %}
+            <br>
+            {% if urldniback != '' %}
+                <img class="dni" src={{ urldniback }} alt="Parte trasera del DNI">
+            {% endif %}
         </p>
     </div>
     <div class="col-sm-12 col-md-8 col-lg8">

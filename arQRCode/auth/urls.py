@@ -2,7 +2,7 @@ from django.urls import include, path
 from django.conf.urls import url
 from django.views.generic import TemplateView
 from .views import views, usuarios, empresas
-from .views.views import account_profile, member_index, member_action, registraEntrada, ajax_posting
+from .views.views import account_profile, member_index, member_action, registraEntrada, ajax_posting, ajax_check, ajax_salida
 
 urlpatterns = [
 #    path('', views.home, name='home'),
@@ -24,9 +24,12 @@ urlpatterns = [
         path('negocio/<int:pk>/accesos/', empresas.NegocioAccesosView.as_view(), name='negocio_accesos'),
         path('negocio/<int:pk>/delete/', empresas.NegocioDeleteView.as_view(), name='negocio_delete'),
         path('negocio/<int:pk>/registro/', empresas.RegistroView.as_view(), name='negocio_registro'),
+#        path('negocio/<int:pk>/registro/', empresas.RegistroView, name='negocio_registro'),
         ##### PRUEBA VUE #####
         url(r'^registraEntrada/', registraEntrada, name='registraEntrada'),
         path('ajax-posting/', ajax_posting, name='ajax_posting'),# ajax-posting / name = that we will use in ajax url
+        path('ajax-check/', ajax_check, name='ajax_check'),
+        path('ajax-salida/', ajax_salida, name='ajax_salida'),
 
     ], 'arQRCode'), namespace='empresas')),
     path('usuarios/', include(([

@@ -1,4 +1,5 @@
-{% extends "bases/bootstrap-member.html" %}
+{% extends "bases/baseform.html" %}
+{% load crispy_forms_tags %}
 {% load bootstrap4 %}
 {% load qr_code %}
 {% load static %}
@@ -6,11 +7,13 @@
 {% block head_css %}
 <link rel="stylesheet" href="{% static 'instascan/style.css' %}">
 <link rel="icon" type="image/png" href="{% static 'instascan/favicon.png' %}">
-<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.0/css/all.css" integrity="sha384-lZN37f5QGtY3VHgisS14W3ExzMWZxybE1SJSEsQp9S+oqd12jhcu+A56Ebc1zFSJ" crossorigin="anonymous">
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.0/css/all.css"
+      integrity="sha384-lZN37f5QGtY3VHgisS14W3ExzMWZxybE1SJSEsQp9S+oqd12jhcu+A56Ebc1zFSJ" crossorigin="anonymous">
 {% endblock %}
 
-̣{% block head_js %}
-<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/webrtc-adapter/3.3.3/adapter.min.js"></script>
+̣{% block app_js %}
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/webrtc-adapter/3.3.3/adapter.min.js"></script>
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.1.10/vue.min.js"></script>
 <script type="text/javascript" src="{% static 'instascan/instascan.min.js' %}"></script>
 <script>
@@ -53,6 +56,18 @@ function inicializaImagen(canvasName, canvasTxtName){
   imageObj.src = "{% static 'instascan/capture.png' %}";
 }
 
+function loadImage(canvasName, canvasTxtName, imgURL) {
+  var canvas = document.getElementById(canvasName);
+  var context = canvas.getContext('2d');
+
+  var img = new Image;
+  img.onload = function(){
+    borraImagen(canvasName);
+    drawImageScaled(img, img.width, img.height, context);
+  };
+  img.src = imgURL;
+}
+
 function captura(canvasName, canvasTxtName, previewName) {
   const player = document.getElementById(previewName);
   const canvas = document.getElementById(canvasName);
@@ -78,13 +93,93 @@ function vaciaForm(dniFrontCanvas, dniFrontCanvasInput, dniBackCanvas, dniBackCa
   var identificacion = document.getElementById(identificacionInput);
   identificacion.value = "";}
 
-function save(dniFrontCanvas, dniFrontCanvasInput, dniBackCanvas, dniBackCanvasInput, identificacionInput) {
+function chequeaEstado(dniFrontCanvas, dniFrontCanvasInput, dniBackCanvas, dniBackCanvasInput, identificacionInput, identificacion, idNegocio) {
+  // Leemos la información del campo de texto
+  var negocio = document.getElementById(idNegocio);
+
+  $.ajax({
+     type : "POST",
+     url: "{% url 'empresas:ajax_check' %}", /* django ajax posting url  */
+     data: {
+       negocioId: negocio.value,
+       identificacionTxt: identificacion,
+       csrfmiddlewaretoken: '{{ csrf_token }}',
+       dataType: "json",
+     },
+     success: function(response) {
+       // En cualquier caso, obtenemos
+       if(response['success']) {
+         // El usuario estaba => Preguntamos si se quiere registrar la salida
+         salida = confirm("El usuario está saliendo. ¿Registrar?!");
+         if (salida == true) {
+              // Hacemos una nueva petición para registrar la salida
+              $.ajax({
+                 type : "POST",
+                 url: "{% url 'empresas:ajax_salida' %}", /* django ajax posting url  */
+                 data: {
+                   negocioId: negocio.value,
+                   identificacionTxt: identificacion,
+                   csrfmiddlewaretoken: '{{ csrf_token }}',
+                   dataType: "json",
+                 },
+                 success: function(response) {
+                   console.log(response);
+                   if(response['success']) {
+                     // La salida se ha registrado correctamente
+                     toastr.success('Salida registrada correctamente!');
+                   }
+                   if(response['error']) {
+                     // Ha habido un error al registrar la salida
+                     toastr.error('Error registrando la salida!');
+                   }
+                 },
+                 error: function (request, status, error) {
+                   console.log(request.responseText);
+                 }
+              });
+         }
+         // En cualquier caso, borramos el formulario
+         vaciaForm(dniFrontCanvas, dniFrontCanvasInput, dniBackCanvas, dniBackCanvasInput, identificacionInput);
+       }
+       if(response['error']) {
+         // Puede ser que el usuario no estuviese o que estemos escaneando un QR de un usuarie que no existe
+         if (response['userExists']) {
+             // El usuario no estaba => Preguntamos si se quiere registrar la entrada
+             toastr.success('Complete el formulario para registrar la Entrada!');
+
+             // Inicializamos los campos de imagen (si existen)
+             if(response['urldnifront']) {
+                loadImage('dni-frontc', 'canvasDniFront', response['urldnifront']);
+                // Indicamos la captura en el campo de texto
+                var canvasTxt = document.getElementById('canvasDniFront');
+                canvasTxt.value = "OK";
+             }
+             if(response['urldniback']) {
+                loadImage('dni-backc', 'canvasDniBack', response['urldniback']);
+                // Indicamos la captura en el campo de texto
+                var canvasTxt = document.getElementById('canvasDniBack');
+                canvasTxt.value = "OK";
+             }
+         }
+         else {
+             // El usuario no existe.
+             toastr.error('El código que está escaneando no corresponde a un usuario registrado.')
+             // En cualquier caso, borramos el formulario
+             vaciaForm(dniFrontCanvas, dniFrontCanvasInput, dniBackCanvas, dniBackCanvasInput, identificacionInput);
+         }
+       }
+     },
+     error: function (request, status, error) {
+       console.log(request.responseText);
+     }
+  });
+}
+
+function save(dniFrontCanvas, dniFrontCanvasInput, dniBackCanvas, dniBackCanvasInput, identificacionInput, idNegocio, dniCheck) {
   // Leemos la información del DNI Frontal
   var canvasFront = document.getElementById(dniFrontCanvas);
   var dniFrontDataURL = canvasFront.toDataURL();
 
-  console.log(dniFrontDataURL);
-  return;
   var canvasTxtFront = document.getElementById(dniFrontCanvasInput);
   // Leemos la información del DNI Trasera
   var canvasBack = document.getElementById(dniBackCanvas);
@@ -92,15 +187,24 @@ function save(dniFrontCanvas, dniFrontCanvasInput, dniBackCanvas, dniBackCanvasI
   var canvasTxtBack = document.getElementById(dniBackCanvasInput);
   // Leemos la información del campo de texto
   var identificacion = document.getElementById(identificacionInput);
+  // Leemos la información del campo de Negocio
+  var negocio = document.getElementById(idNegocio);
+  // Comprobamos si se debe leer el DNI
+  var conDNI = document.getElementById(dniCheck);
+
+    console.log(conDNI.checked);
 
   // Verificamos que estén todos los datos disponibles
-  if (!canvasTxtFront.value) {
-    alert("Debe capturar la imagen frontal del DNI");
-    return;
-  }
-  if (!canvasTxtBack.value) {
-    alert("Debe capturar la imagen trasera del DNI");
-    return;
+  if (conDNI.checked) {
+    if (!canvasTxtFront.value) {
+      alert("Debe capturar la imagen frontal del DNI");
+      return;
+    }
+
+    if (!canvasTxtBack.value) {
+      alert("Debe capturar la imagen trasera del DNI");
+      return;
+    }
   }
   if (!identificacion.value) {
     alert("Debe capturar el código QR del usuario");
@@ -111,23 +215,22 @@ function save(dniFrontCanvas, dniFrontCanvasInput, dniBackCanvas, dniBackCanvasI
      type : "POST",
      url: "{% url 'empresas:ajax_posting' %}", /* django ajax posting url  */
      data: {
+       conDNI: conDNI.checked,
        dniFrontImgBase64: dniFrontDataURL,
        dniBackImgBase64: dniBackDataURL,
        identificacionTxt: identificacion.value,
+       negocioId: negocio.value,
        csrfmiddlewaretoken: '{{ csrf_token }}',
        dataType: "json",
      },
      success: function(response) {
        // Inicializamos el form
        vaciaForm(dniFrontCanvas, dniFrontCanvasInput, dniBackCanvas, dniBackCanvasInput, identificacionInput);
-
        if(response['success']) {
-       console.log("Yeeepa: " + response);
-         $("#feedbackmessage").html("<div class='alert alert-success'>Succesfully sent feedback, thank you!</div>");
-         $("#feedbackform").addClass("hidden");
+         toastr.success('Entrada registrada correctamente!');
        }
        if(response['error']) {
-         $("#feedbackmessage").html("<div class='alert alert-danger'>" + response['error']['comment'] +"</div>");
+         toastr.error('Error registrando la entrada!');
        }
      },
      error: function (request, status, error) {
@@ -141,84 +244,112 @@ window.addEventListener("DOMContentLoaded", function() {
   inicializaImagen('dni-backc', 'canvasDniBack');
 });
 
+
+
 </script>
 {% endblock %}
 
-{% block head_title %}Instascan &ndash; Demo{% endblock %}
-
-{% block content %}
-
-<div id="app_instascan">
-    <div class="sidebar">
-        <section class="cameras">
-            <h2>Cameras</h2>
-            <ul>
-                <li v-if="cameras.length === 0" class="empty">No cameras found</li>
-                <li v-for="camera in cameras">
-                    <span v-if="camera.id == activeCameraId" :title="formatName(camera.name)" class="active">[[ formatName(camera.name) ]]</span>
-                    <span v-if="camera.id != activeCameraId" :title="formatName(camera.name)">
-                <a @click.stop="selectCamera(camera)">[[ formatName(camera.name) ]]</a>
-              </span>
-                </li>
-            </ul>
-        </section>
-        <section class="scans">
-            <h2>Scans</h2>
-            <ul v-if="scans.length === 0">
-                <li class="empty">No scans yet</li>
-            </ul>
-            <transition-group name="scans" tag="ul">
-                <li v-for="scan in scans" :key="scan.date" :title="scan.content">[[ scan.content ]]</li>
-            </transition-group>
-        </section>
-    </div>
-    <div id="preview-container">
-        <video id="preview"></video>
-    </div>
-    <br><br>
-    <h4>Entrada / Salida</h4>
-    <div class="row">
-      <div id="feedbackmessage"></div>
-    </div>
-    <div id="form" >
-        <form method="POST" id="registraForm">
+{% block form %}
+<h2 class="mb-3">Registro de entradas / salidas</h2>
+<div class="row">
+    <div class="col-sm-6 col-md-4 col-lg4">
+        <!--{% bootstrap_messages %}-->
+        {% if messages %}
+        {% for message in messages %}
+        {% if message.tags == 'success'%}
+        <script type=text/javascript>toastr.{{ message.tags }}('{{ message }}')</script>
+        {% elif message.tags == 'info' %}
+        <script type=text/javascript>toastr.{{ message.tags }}('{{ message }}')</script>
+        {% elif message.tags == 'warning' %}
+        <script type=text/javascript>toastr.{{ message.tags }}('{{ message }}')</script>
+        {% elif message.tags == 'error' %}
+        <script type=text/javascript>toastr.{{ message.tags }}('{{ message }}')</script>
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+        <p class="sticky taped2" style="width: 250px;">
+            <strong>Ingrese los datos manualmente</strong><br>
+        <form method="post" novalidate>
             {% csrf_token %}
-            <div class="container-fluid">
+<!--            {% bootstrap_form form %}-->
+            {{ form|crispy }}
+            <button type="submit" class="btn btn-success">Registrar</button>
+        </form>
+        </p>
+    </div>
+    <div class="col-sm-12 col-md-8 col-lg8">
+        <p class="sticky taped2" style="width: 100%;">
+            <strong>Escaneo de código QR y captura de DNI</strong>
+        <div class="container">
+
+            <div id="app_instascan">
                 <div class="row">
-                  <div class="col-6">
-                    <label for="dni-frontc">Dni - Frontal:</label>
-                    <canvas id="dni-frontc" onclick="captura('dni-frontc', 'canvasDniFront', 'preview')"></canvas>
-                    <input hidden type="Text" id="canvasDniFront" value="">
-                  </div>
-                  <div class="col-6">
-                    <label for="dni-backc">Dni - Trasera:</label>
-                    <canvas id="dni-backc" onclick="captura('dni-backc', 'canvasDniBack', 'preview')"></canvas>
-                    <input hidden type="Text" id="canvasDniBack" value="">
-                  </div>
+                    <div class="col-sm-6 col-md-4 col-lg4">
+                        <strong>Cámaras</strong>
+                        <ul>
+                            <li v-if="cameras.length === 0" class="empty">No cameras found</li>
+                            <li v-for="camera in cameras">
+                                <span v-if="camera.id == activeCameraId" :title="formatName(camera.name)"
+                                      class="active">[[ formatName(camera.name) ]]</span>
+                                <span v-if="camera.id != activeCameraId" :title="formatName(camera.name)">
+                            <a @click.stop="selectCamera(camera)">[[ formatName(camera.name) ]]</a>
+                          </span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-sm-14 col-md-8 col-lg8">
+                        <div id="preview-container">
+                            <video id="preview"></video>
+                        </div>
+                    </div>
                 </div>
-                <div class="row">
-                  <div class="col">
-                    <label for="identificacion">Id:</label>
-                    <input type="text" width=100% id="identificacion" name="identificacion" placeholder="Escanee código QR" v-bind:value="lastScan">
-                  </div>
-                </div>
-                <div class="row">
-                    <div class="col">
-                        <button type="button" id="registroBtn" class="btn btn-primary" onclick="save('dni-frontc', 'canvasDniFront', 'dni-backc', 'canvasDniBack', 'identificacion')">
+                <br>
+                <form method="POST" id="registraForm">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col">
+                            <label for="identificacion">Id:</label>
+                            <input type="text" id="identificacion" name="identificacion" readonly
+                                   placeholder="Escanee código QR" v-bind:value="lastScan">
+                            <input hidden type="Text" id="idNegocio" value={{ negocio.id }}>
+                        </div>
+                    </div>
+                    <div class="row  mt-3">
+                        <div class="col">
+                            <label for="tieneDNI">¿Tiene DNI? </label>
+                            <input type="checkbox" id="tieneDNI" name="tieneDNI" checked>
+                        </div>
+                    </div>
+                    <div class="row  mt-3">
+                        <div class="col">
+                            <label for="dni-frontc">Dni - Frontal:</label>
+                            <canvas id="dni-frontc"
+                                    onclick="captura('dni-frontc', 'canvasDniFront', 'preview')"></canvas>
+                            <input hidden type="Text" id="canvasDniFront" value="">
+                        </div>
+                        <div class="col">
+                            <label for="dni-backc">Dni - Trasera:</label>
+                            <canvas id="dni-backc" onclick="captura('dni-backc', 'canvasDniBack', 'preview')"></canvas>
+                            <input hidden type="Text" id="canvasDniBack" value="">
+                        </div>
+                    </div>
+                    <div class="row  mt-3">
+                        <button type="button" id="registroBtn" class="btn btn-primary"
+                                onclick="save('dni-frontc', 'canvasDniFront', 'dni-backc', 'canvasDniBack', 'identificacion', 'idNegocio', 'tieneDNI')">
                             <span class="far fa-paper-plane" aria-hidden="true"></span>
                         </button>
-                    </div>
-                    <div class="col">
-                        <button type="button" id="vaciaBtn" class="btn btn-danger" onclick="vaciaForm('dni-frontc', 'canvasDniFront', 'dni-backc', 'canvasDniBack', 'identificacion')">
+                        <button type="button" id="vaciaBtn" class="btn btn-danger"
+                                onclick="vaciaForm('dni-frontc', 'canvasDniFront', 'dni-backc', 'canvasDniBack', 'identificacion')">
                             <span class="fas fa-trash-alt" aria-hidden="true"></span>
                         </button>
                     </div>
-                </div>
+                </form>
             </div>
-        </form>
+        </div>
+        </p>
     </div>
-</script>
 </div>
 <script type="text/javascript" src="{% static 'instascan/app.js' %}"></script>
-
 {% endblock %}
+
+

@@ -7,7 +7,11 @@ from django.views.generic.edit import FormMixin, UpdateView
 from django.shortcuts import redirect
 from django.conf import settings
 from arQRCode.auth.forms.forms import UserEditForm
+import logging
+logger = logging.getLogger(__name__)
 
+from ..models import User, Aforo, Accesos
+from django.db import transaction
 
 def index(request):
     # Haremos una cosa u otra en función de si hay un usuario autentificado o no
@@ -93,53 +97,111 @@ import base64
 from PIL import Image
 from pathlib import Path
 import os
+import base64
+
 def registraEntrada(request):
     context = {}
     return render(request, 'list.html', context)
 
 # ajax_posting function
+def saveBase64Image(img, ruta):
+    # Preparamos la imagen
+    data = img.replace('data:image/png;base64,', '')
+    data = data.replace(' ', '+')
+    # y la decodificamos
+    imgdata = base64.b64decode(data)
+    # La guardamos en el fichero indicado
+    with open(ruta, 'wb') as f:
+        f.write(imgdata)
+
+@login_required
 def ajax_posting(request):
     if request.is_ajax():
+        # Leemos la petición del request
+        conDNI = request.POST.get('conDNI', None)
         dniFrontImgBase64 = request.POST.get('dniFrontImgBase64', None) # getting data from input first_name id
         dniBackImgBase64 = request.POST.get('dniBackImgBase64', None)  # getting data from input last_name id
         identificacionTxt = request.POST.get('identificacionTxt', None)  # getting data from input last_name id
+        negocioId = request.POST.get('negocioId', None)  # getting data from input negocio ID
+        # Grabamos la imagen delantera si viene con DNI
+        if conDNI == 'true':
+            # Comprobamos que exista el directorio
+            directorio = os.path.join(settings.PROFILEMEDIA_ROOT, identificacionTxt)
+            try:
+                os.mkdir(directorio)
+            except OSError:
+                logger.error("Creation of the directory %s failed" % directorio)
+            else:
+                logger.error("Successfully created the directory %s " % directorio)
+            # Calculamos los nombres de las imagenes para el usuario
+            rutafront = os.path.join(directorio, settings.DNIFRONT)
+            rutaback = os.path.join(directorio, settings.DNIBACK)
 
-        print(dniFrontImgBase64)
-        #print(dniBackImgBase64)
-        #print(identificacionTxt)
-
-        f = open( 'some_file.txt', 'w+')
-        f.write(dniFrontImgBase64)
-        f.close()
-
-        import base64
-        data = dniFrontImgBase64.replace(' ', '+')
-        imgdata = base64.b64decode(data)
-        filename = 'some_image.jpg'  # I assume you have a way of picking unique filenames
-        with open(filename, 'wb') as f:
-            f.write(imgdata)
-
-        # Grabamos la imagen delantera
-        if dniFrontImgBase64:
-            destino = os.path.join(settings.PROFILEMEDIA_ROOT, identificacionTxt)
-            Path(destino).mkdir(parents=True, exist_ok=True)
-            imagenDNIDelantera = os.path.join(destino, '{0}-front.png'.format(identificacionTxt))
-            pic = StringIO()
-            image_string = StringIO(base64.b64decode(dniFrontImgBase64))
-            image = Image.open(imagenDNIDelantera)
-            image.save(pic, image.format, quality = 100)
-            pic.seek(0)
-        # Grabamos la imagen trasera
-        if dniBackImgBase64:
-            destino = os.path.join(settings.PROFILEMEDIA_ROOT, identificacionTxt)
-            Path(destino).mkdir(parents=True, exist_ok=True)
-            imagenDNITrasera = os.path.join(destino, '{0}-back.png'.format(identificacionTxt))
-            pic = StringIO()
-            image_string = StringIO(base64.b64decode(dniFrontImgBase64))
-            image = Image.open(imagenDNITrasera)
-            image.save(pic, image.format, quality = 100)
-            pic.seek(0)
+            if dniFrontImgBase64:
+                # Usamos la función
+                saveBase64Image(dniFrontImgBase64, rutafront)
+            # Grabamos la imagen trasera
+            if dniBackImgBase64:
+                # Usamos la función
+                saveBase64Image(dniBackImgBase64, rutaback)
 
         # Grabamos el registro de la entrada/salida
+        entrada = Aforo.objects.create_entrada(negocioId, identificacionTxt)
 
+        # Llamamos a la función del modelo para hacer el apunte
         return JsonResponse({'success': True})
+
+@login_required
+def ajax_check(request):
+    if request.is_ajax():
+        # Leemos la petición del request
+        identificacionTxt = request.POST.get('identificacionTxt', None)  # getting data from input user UUID
+        negocioId = request.POST.get('negocioId', None)  # getting data from input negocio ID
+        # Buscamos el usuario
+        try:
+            user = User.objects.get(pk = identificacionTxt)
+            # Verificamos el estado del usuario
+            try:
+                aforo = Aforo.objects.get(user=identificacionTxt, negocio=negocioId)
+                # Devolvemos el estado de acceso
+                return JsonResponse({'success': aforo.fechaEntrada})
+            except Exception:
+                # Además del error, devolvemos las URL de las imágenes (si existen)
+                # Obtenemos la referencia al usuario
+                response = {'error': True}
+                urldnifront = user.get_frontDNI_url()
+                urldniback = user.get_backDNI_url()
+                if urldnifront != '':
+                    response['urldnifront'] = urldnifront
+                if urldniback != '':
+                    response['urldniback'] = urldniback
+                return JsonResponse(response)
+        except User.DoesNotExist:
+            # Obtenemos la referencia al usuario
+            response = {'error': True}
+            response['userExists'] = False
+            return JsonResponse(response)
+
+@login_required
+@transaction.atomic
+def ajax_salida(request):
+    if request.is_ajax():
+        # Leemos la petición del request
+        identificacionTxt = request.POST.get('identificacionTxt', None)  # getting data from input user UUID
+        negocioId = request.POST.get('negocioId', None)  # getting data from input negocio ID
+        # Directamente generamos la salida
+        # Verificamos el estado del usuario
+        try:
+            # Datos del registro de entrada
+            aforo = Aforo.objects.get(user=identificacionTxt, negocio=negocioId)
+            # Generamos el registro de salida
+            acceso = Accesos.objects.create_acceso(aforo.negocio.id, aforo.user.id, aforo.fechaEntrada)
+            # y borramos el registro del aforo
+            aforo.delete()
+            # Devolvemos el estado de acceso
+            return JsonResponse({'success': acceso.fechaSalida})
+        except Exception:
+            # Si hay excepción => no estaba dentro => no hacemos nada
+            return JsonResponse({'error': True})
+
+

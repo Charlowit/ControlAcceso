@@ -14,6 +14,8 @@ from django.utils.translation import ugettext_lazy as _
 import uuid
 from activatable_model.models import BaseActivatableModel
 from django.conf import settings
+import os
+from django.templatetags.static import static
 
 try:
     from django.utils.encoding import force_text
@@ -85,28 +87,29 @@ class User(AbstractBaseUser, PermissionsMixin, CommonInfo):
     Remember to change ``AUTH_USER_MODEL`` in ``settings.py``.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    email = models.EmailField(_('email address'), db_index=True, blank=False, unique=True)
-    first_name = models.CharField(_('first name'), max_length=40, blank=True, null=True, unique=False)
-    last_name = models.CharField(_('last name'), max_length=40, blank=True, null=True, unique=False)
-    display_name = models.CharField(_('display name'), max_length=14, blank=True, null=True, unique=False)
-    phone = models.CharField(_('teléfono'), max_length=100, blank=False)
+    email = models.EmailField(_('Email'), db_index=True, blank=False, unique=True)
+    first_name = models.CharField(_('Nombre'), max_length=40, blank=True, null=True, unique=False)
+    last_name = models.CharField(_('Apellidos'), max_length=40, blank=True, null=True, unique=False)
+    display_name = models.CharField(_('Nombre a mostrar'), max_length=14, blank=True, null=True, unique=False)
+    phone = models.CharField(_('Teléfono'), max_length=100, blank=False, null=False)
+    dni = models.CharField(_('DNi'), max_length=10, blank=False, null=False)
     android = models.BooleanField(blank=True, default=False)
     ios = models.NullBooleanField(blank=True, default=False, null=True)
-    acceptPush = models.BooleanField(_('Acepta Notificaciones'), default=False)
+    acceptPush = models.BooleanField(_('Acepta Notificaciones'), default=False, blank=True, null=True)
     pushToken = models.CharField(max_length=100, null=True, blank=True,db_index=True)
     is_staff = models.BooleanField(_('staff status'), default=False,
                                    help_text=_('Designates whether the user can log into this admin site.'))
-    is_active = models.BooleanField(_('active'), default=True,
+    is_active = models.BooleanField(_('Activo'), default=True,
                                     help_text=_('Designates whether this user should be treated as '
                                                 'active. Unselect this instead of deleting accounts.'))
-    date_joined = models.DateTimeField(_('date joined'), default=timezone.now)
+    date_joined = models.DateTimeField(_('Fecha de registro'), default=timezone.now)
     valid = models.BooleanField(default=True)
-    is_business = models.BooleanField(_('Es una empresa?'), default=False, blank=False,
-                                      help_text=_('Indica cuando el usuario es representante de uno o más negocios..'))
+    is_business = models.BooleanField(_('Es una empresa?'), default=False, blank=True, null=True,
+                                      help_text=_('Indica cuando el usuario es representante de uno o más negocios.'))
 
     objects = MyUserManager()
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['first_name', 'last_name', 'phone']
+    REQUIRED_FIELDS = ['first_name', 'last_name', 'phone', 'dni']
     class Meta:
         verbose_name = ('User')
         verbose_name_plural = ('Users')
@@ -114,6 +117,26 @@ class User(AbstractBaseUser, PermissionsMixin, CommonInfo):
     def get_absolute_url(self):
         # TODO: what is this for?
         return "/users/%s/" % urlquote(self.id)  # TODO: email ok for this? better to have uuid?
+    def get_frontDNI_url(self):
+        print (self.id)
+        # Calculamos el path de las imágenes del usuario
+        dnifront = os.path.join(settings.PROFILEMEDIA_BASE, str(self.id), settings.DNIFRONT)
+        # comprobamos si existe el fichero
+        if os.path.exists(os.path.join(settings.PROFILEMEDIA_ROOT, str(self.id), settings.DNIFRONT)):
+            # Y las rutas estáticas
+            return static(dnifront)
+        else:
+            return ''
+
+    def get_backDNI_url(self):
+        # Calculamos el path de las imágenes del usuario
+        dniback = os.path.join(settings.PROFILEMEDIA_BASE, str(self.id), settings.DNIBACK)
+        # comprobamos si existe el fichero
+        if os.path.exists(os.path.join(settings.PROFILEMEDIA_ROOT, str(self.id), settings.DNIBACK)):
+            # Y las rutas estáticas
+            return static(dniback)
+        else:
+            return ''
 
     @property
     def name(self):
@@ -158,26 +181,6 @@ class User(AbstractBaseUser, PermissionsMixin, CommonInfo):
     def natural_key(self):
         return (self.email,)
 
-@python_2_unicode_compatible
-class UserProfile(models.Model):
-    """Profile data about a user.
-    Certain data makes sense to be in the User model itself, but some
-    is more "profile" data than "user" data. I think this is things like
-    date-of-birth, favourite colour, etc. If you have domain-specific
-    profile information you might create additional profile classes, like
-    say UserGeologistProfile.
-    """
-    user = models.OneToOneField(User, primary_key=True, verbose_name='user', related_name='profile',
-                                on_delete=models.CASCADE)
-    dni_front_url = models.CharField(max_length=256, blank=True, null=True)
-    dni_back_url = models.CharField(max_length=256, blank=True, null=True)
-
-    def __str__(self):
-        return force_text(self.user.email)
-
-    class Meta():
-        db_table = 'user_profile'
-
 # Negocio (objeto)
 class Negocio(CommonInfo, BaseActivatableModel):
     nombre = models.CharField(max_length=100, null=False, blank=False)
@@ -186,7 +189,7 @@ class Negocio(CommonInfo, BaseActivatableModel):
     localidad_fiscal = models.CharField(_('Localidad'), max_length=100)
     provincia_fiscal = models.CharField(_('Provincia'), max_length=100)
     codigo_postal_fiscal = models.CharField(_('Código Postal'), max_length=100)
-    is_active = models.BooleanField(_('Activo'), default=False)
+    is_active = models.BooleanField(_('Activo'), default=True)
     aforo = models.PositiveSmallIntegerField(_('Aforo') )
     fechaRegistro = models.DateTimeField('Fecha Registro', auto_now_add=True, db_index=True)
 
@@ -200,18 +203,44 @@ class Negocio(CommonInfo, BaseActivatableModel):
         verbose_name = ('Negocio')
         verbose_name_plural = ('Negocios')
 
+class AccesosManager(models.Manager):
+    def create_acceso(self, idNegocio, idUsuario, fechaEntrada):
+        acceso = self.create(user=User.objects.get(pk=idUsuario), negocio=Negocio.objects.get(pk=idNegocio), fechaEntrada=fechaEntrada)
+        return acceso
+
 # Lista de accesos
 class Accesos(CommonInfo, models.Model):
     user = models.ForeignKey(User, null=False, on_delete=models.CASCADE, related_name='accesosusuario')
     negocio = models.ForeignKey(Negocio, null=False, on_delete=models.CASCADE, related_name='accesosnegocio')
-    fechaEntrada = models.DateTimeField(_('fecha entrada'), default=timezone.now)
-    fechaSalida = models.DateTimeField(_('fecha salida'))
+    fechaEntrada = models.DateTimeField(_('fecha entrada'))
+    fechaSalida = models.DateTimeField(_('fecha salida'), default=timezone.now)
+
+    objects = AccesosManager()
+
+    @classmethod
+    def create(cls, idNegocio, idUsuario, fechaEntrada):
+        acceso = cls(negocio=idNegocio, user=idUsuario, fechaEntrada=fechaEntrada)
+        # do something with the book
+        return acceso
+
+class AforoManager(models.Manager):
+    def create_entrada(self, idNegocio, idUsuario):
+        entrada = self.create(user=User.objects.get(pk=idUsuario), negocio=Negocio.objects.get(pk=idNegocio))
+        return entrada
 
 # Lista de aforo (usuarios en el local)
 class Aforo(CommonInfo, models.Model):
     user = models.ForeignKey(User, null=False, on_delete=models.CASCADE, related_name='aforousuario')
     negocio = models.ForeignKey(Negocio, null=False, on_delete=models.CASCADE, related_name='aforonegocio')
-    fechaEntrada = models.DateTimeField(_('fecha entrada'))
+    fechaEntrada = models.DateTimeField(_('fecha entrada'), auto_now_add=True, db_index=True)
+
+    objects = AforoManager()
+
+    @classmethod
+    def create(cls, idNegocio, idUsuario):
+        entrada = cls(user=idUsuario, negocio=idNegocio)
+        # do something with the book
+        return entrada
 
 @receiver(user_signed_up)
 def set_initial_user_names(request, user, sociallogin=None, **kwargs):
@@ -255,10 +284,6 @@ def set_initial_user_names(request, user, sociallogin=None, **kwargs):
             user.last_name = sociallogin.account.extra_data['family_name']
             # verified = sociallogin.account.extra_data['verified_email']
             picture_url = sociallogin.account.extra_data['picture']
-
-#    profile = UserProfile(user=user, avatar_url=picture_url)
-    profile = UserProfile(user=user)
-    profile.save()
 
     user.guess_display_name()
     user.save()
